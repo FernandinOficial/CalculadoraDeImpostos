@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calculadora de Impostos</title>
+    <link rel="shortcut icon" href="img/moeda-logo.png" type="image/x-icon">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -77,6 +78,12 @@
             color: #333;
         }
 
+        .descricao {
+            margin-top: 15px;
+            font-style: italic;
+            color: #555;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -92,8 +99,10 @@
     <div class="container">
         <h2>Calculadora de Impostos</h2>
 
-        <label for="ncm">NCM:</label>
-        <input type="text" id="ncm" placeholder="Digite o NCM">
+        <label for="ncm">NCM: (opcional)</label>
+        <input type="text" id="ncm" placeholder="Digite o NCM" maxlength="10" oninput="formatarNcm(); validarNcm();">
+
+        <div class="descricao" id="descricao"></div>
 
         <label for="valor">Valor do produto (R$):</label>
         <input type="number" id="valor" step="0.01" placeholder="Ex: 0.85">
@@ -110,12 +119,53 @@
         <label for="cofins">COFINS (%):</label>
         <input type="number" id="cofins" step="0.01" placeholder="Ex: 7.65">
 
+        <label for="iss">ISS (%):</label>
+        <input type="number" id="iss" step="0.01" placeholder="Ex: 5">
+
+        <label for="ii">Imposto de Importação (%):</label>
+        <input type="number" id="ii" step="0.01" placeholder="Ex: 15">
+
         <button onclick="calcularImpostos()">Calcular</button>
 
         <div class="resultado" id="resultado"></div>
     </div>
 
     <script>
+        // Substitua "SUA_CHAVE" pela sua chave de API pessoal
+        const API_KEY = 'd78cdd2d372a9bc95d70a671f2202fa6179d12b4ff447815f269ebc2e748b32e'; 
+
+        function formatarNcm() {
+            let ncm = document.getElementById("ncm").value;
+            // Remove qualquer caractere não numérico
+            ncm = ncm.replace(/\D/g, '');
+            // Adiciona os pontos automaticamente
+            if (ncm.length > 2) ncm = ncm.replace(/(\d{2})(\d{1})/, '$1.$2');
+            if (ncm.length > 5) ncm = ncm.replace(/(\d{2})\.(\d{2})(\d{1})/, '$1.$2.$3');
+            document.getElementById("ncm").value = ncm;
+        }
+
+        function validarNcm() {
+            let ncm = document.getElementById("ncm").value.replace(/\D/g, ''); // Remove os pontos e deixa apenas os números
+            const descricaoElement = document.getElementById("descricao");
+            if (ncm.length === 8) {
+                // Chama a API para buscar a descrição do NCM
+                fetch(`https://www.receitaws.com.br/v1/ncm/${ncm}?token=${API_KEY}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            descricaoElement.innerHTML = "<strong>Descrição:</strong> NCM não encontrado.";
+                        } else {
+                            descricaoElement.innerHTML = `<strong>Descrição:</strong> ${data.descricao}`;
+                        }
+                    })
+                    .catch(error => {
+                        descricaoElement.innerHTML = "<strong>Erro ao buscar a descrição.</strong>";
+                    });
+            } else {
+                descricaoElement.innerHTML = "";
+            }
+        }
+
         function calcularImpostos() {
             let ncm = document.getElementById("ncm").value;
             let valorProduto = parseFloat(document.getElementById("valor").value);
@@ -123,35 +173,35 @@
             let icms = parseFloat(document.getElementById("icms").value) || 0;
             let pis = parseFloat(document.getElementById("pis").value) || 0;
             let cofins = parseFloat(document.getElementById("cofins").value) || 0;
+            let iss = parseFloat(document.getElementById("iss").value) || 0;
+            let ii = parseFloat(document.getElementById("ii").value) || 0;
 
             if (isNaN(valorProduto) || valorProduto <= 0) {
                 document.getElementById("resultado").innerHTML = "<strong>Por favor, insira um valor válido para o produto.</strong>";
                 return;
             }
 
-            // Cálculo de IPI
+            // Cálculos dos impostos
             let valorIpi = valorProduto * (ipi / 100);
-            // Base de cálculo do ICMS (valor do produto + IPI)
             let baseIcms = valorProduto + valorIpi;
-            // Cálculo de ICMS
             let valorIcms = baseIcms * (icms / 100);
-            // Cálculo de PIS
             let valorPis = valorProduto * (pis / 100);
-            // Cálculo de COFINS
             let valorCofins = valorProduto * (cofins / 100);
-            // Valor total de impostos
-            let valorTotalImpostos = valorIpi + valorIcms + valorPis + valorCofins;
-            // Valor final com impostos
+            let valorIss = valorProduto * (iss / 100);
+            let valorIi = valorProduto * (ii / 100);
+            let valorTotalImpostos = valorIpi + valorIcms + valorPis + valorCofins + valorIss + valorIi;
             let valorFinal = valorProduto + valorTotalImpostos;
 
             // Exibição dos resultados
             document.getElementById("resultado").innerHTML = `
                 <strong>NCM:</strong> ${ncm} <br>
                 <strong>Valor sem impostos:</strong> R$ ${valorProduto.toFixed(2)} <br>
-                <strong>IPI (${ipi}%):</strong> R$ ${valorIpi.toFixed(2)} <br>
                 <strong>ICMS (${icms}%):</strong> R$ ${valorIcms.toFixed(2)} <br>
+                <strong>IPI (${ipi}%):</strong> R$ ${valorIpi.toFixed(2)} <br>
                 <strong>PIS (${pis}%):</strong> R$ ${valorPis.toFixed(2)} <br>
                 <strong>COFINS (${cofins}%):</strong> R$ ${valorCofins.toFixed(2)} <br>
+                <strong>ISS (${iss}%):</strong> R$ ${valorIss.toFixed(2)} <br>
+                <strong>Imposto de Importação (${ii}%):</strong> R$ ${valorIi.toFixed(2)} <br>
                 <strong>Valor total de impostos:</strong> R$ ${valorTotalImpostos.toFixed(2)} <br>
                 <strong>Valor final com impostos:</strong> <span style="color: green;">R$ ${valorFinal.toFixed(2)}</span>
             `;
